@@ -11,39 +11,33 @@ import numpy as np
 # ---------------------------------------------------------------------------
 class Client:
     """A client generates requests and sends them to the load balancer."""
-    def generate_requests(self, env, arrival_rate, loadbalancer, num_requests):
+    def generate_requests(self, env, num_requests, arrival_rate, loadbalancer):
         """Generate new requests and send them to the load balancer."""
 
         for _ in range(num_requests):
             yield env.timeout(random.expovariate(arrival_rate))
-            env.process(loadbalancer.handle_request())
+            loadbalancer.handle_request()
 
 # ---------------------------------------------------------------------------
-# Load balancer (and server)
+# Load balancer
 # ---------------------------------------------------------------------------
 class LoadBalancer:
-    """The loadbalancer manages n servers. It can handle requests by forwarding them to the servers."""
+    """The loadbalancer manages n servers. It receives requests and forwards them to the servers.
 
-    def __init__(self, env, num_servers, service_rate, results):
+       The load balancer may implement different task assignment policies,
+       e.g., round-robin, random, etc.
+    """
+
+    def __init__(self, env, servers):
         self.env = env
-        self.servers = [simpy.Resource(env, capacity=1) for _ in range(num_servers)]
-        self.service_rate = service_rate
-        self.results = results
+        self.servers = servers
         self.next_server = 0
 
     def handle_request(self):
-        """Server process: chose a server, put request in queue, wait for service, release resource."""
+        """Choose a server and send the request to it."""
         arrival_time = self.env.now
-
-        server = self.round_robin()
-        job = server.request()
-        # Wait for the server to become available (wait in the queue)
-        yield job
-        # Process the request
-        yield self.env.timeout(random.expovariate(self.service_rate))
-        departure_time = self.env.now
-        self.results.append(departure_time - arrival_time)
-        server.release(job)
+        server = self.round_robin() # Use the task assignment policy here
+        self.env.process(server.handle_request(arrival_time))
 
     # Load balancing policies ----------------------------------------------
     def round_robin(self):
@@ -53,45 +47,103 @@ class LoadBalancer:
         return server
 
 
-
 # ---------------------------------------------------------------------------
+# Server node
+# ---------------------------------------------------------------------------
+class Server:
+    """A server that processes requests."""
+
+    def __init__(self, env, service_rate, results):
+        self.env = env
+        self.service_rate = service_rate
+        self.resource = simpy.Resource(env, capacity=1)
+        self.results = results
+
+    def handle_request(self, arrival_time):
+        """Server process: handle the request and write the response time to the results"""
+
+        job = self.resource.request()
+        # Wait for the server to become available (wait in the queue)
+        yield job
+        # Process the request
+        yield self.env.timeout(random.expovariate(self.service_rate))
+        departure_time = self.env.now
+        self.results.append(departure_time - arrival_time)
+        self.resource.release(job)
+
+
+
+# ===========================================================================
 # Main functions to run the simulation with different configurations
-# ---------------------------------------------------------------------------
+# ===========================================================================
 def main():
-    """Function to run a simulation with a single, but fast, server."""
+    """Run a number of simulations with different configurations. Generate the result plots.
 
+       In the current implementation, this function runs the simulations of a
+       load-balancing server farm.
+       The arrival rate is varied for each run to evaluate the performance at different loads
+    """
+
+    # Simulation coniguration
+    plot_file = "../visualizations/1_server.png"
+    num_requests = 500_000
+    service_rates = [100] # List of service rates of each server
+    arrival_rates = list(range(5, 100, 5)) + [99] # List of arrival rates to simulate
+
+    # Lists to store the results of the different simulation runs
     response_times_mean = []
     response_times_99 = []
 
-    num_requests = 500_000
-    num_servers = 5
-    service_rate = 100.0/num_servers
-    arrival_rates = list(range(5, 100, 5)) + [99]
-
     for arrival_rate in arrival_rates:
-        print(f"Simulating rho = {arrival_rate/(service_rate*num_servers)}")
-        response_times = [] # Used for the simulation results
-        env = simpy.Environment()
-        load_balancer = LoadBalancer(env, num_servers, service_rate, response_times)
-        client = Client()
-
-        env.process(client.generate_requests(env, arrival_rate, load_balancer, num_requests))
-        env.run()
+        print(f"Simulating arrival rate = {arrival_rate}")
+        response_times = simulate(num_requests, arrival_rate, service_rates)
 
         response_times_mean.append(np.mean(response_times))
         response_times_99.append(np.percentile(response_times, 99))
 
-    print(f"Mean response times: {response_times_mean}")
-    print(f"99th percentile response times: {response_times_99}")
+    print_results_table(arrival_rates, response_times_mean, response_times_99)
+    plot_results(plot_file, arrival_rates, response_times_mean, response_times_99)
 
-    rhos = [arrival_rate/(service_rate*num_servers) for arrival_rate in arrival_rates]
-    plt.plot(rhos , response_times_mean, label="Mean")
-    plt.plot(rhos, response_times_99, label="99th percentile")
+
+# ---------------------------------------------------------------------------
+# Helper functions
+# ---------------------------------------------------------------------------
+def simulate(num_requests, arrival_rate, service_rates):
+    """Run a single simulation with the given parameters."""
+    response_times = [] # Used for the simulation results
+
+    # Configure the nodes
+    env = simpy.Environment()
+    client = Client()
+    servers = [Server(env, service_rate, response_times) for service_rate in service_rates]
+    load_balancer = LoadBalancer(env, servers)
+
+    # Run the simulation
+    env.process(client.generate_requests(env, num_requests, arrival_rate, load_balancer))
+    env.run()
+    return response_times
+
+
+def print_results_table(arrival_rates, response_times_mean, response_times_99):
+    """Print the results in a table format."""
+    print()
+    print("Results:")
+    print("Arrival rate | Mean response time | 99th percentile |")
+    print("------------:|-------------------:|----------------:|")
+    for i, arrival_rate in enumerate(arrival_rates):
+        print(f"{arrival_rate:>12.0f} | {response_times_mean[i]:>18.3f} | {response_times_99[i]:>15.3f} |")
+
+def plot_results(filename, arrival_rates, response_times_mean, response_times_99):
+    """Plot the results in a graph."""
+    plt.plot(arrival_rates , response_times_mean, label="Mean")
+    plt.plot(arrival_rates, response_times_99, label="99th percentile")
     plt.ylim(0, 2.5)
-    plt.xlabel("Utilization")
+    plt.xlabel("Arrival rate")
     plt.ylabel("Response time (s)")
     plt.legend()
-    plt.savefig("../visualizations/5_servers_rr.png")
+    plt.savefig(filename)
+    print()
+    print(f"Plot saved to {filename}")
 
 
 # ---------------------------------------------------------------------------

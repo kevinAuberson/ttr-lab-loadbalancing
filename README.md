@@ -62,6 +62,33 @@ Case 4: Improving the load balancing system
 
 Round-robin is inefficient and much less efficient than a true M/M/k system would be. Can we improve the performance of the loadbalancing system?
 
-The goal of this case is to define a better scheduling algorithm than round-robin. 
+The goal of this case is to define a better algorithm than round-robin. Implement two different task assignment algorithms:
 
-To do this, implement a better scheduling algorithm. Then evaluate its performance and compare it to previous results, e.g., at 80% utilization.
+- **Shortest-queue-first scheduling (SFQ)**: The request is sent to the server with the shortest queue. This should be easy to implement.
+- **Central queue (CQ)**: the load balancer has a central queue. This is more difficult to implement. To make it simpler, you can directly handle the jobs in the `LoadBalancer.hande_request()` method.
+
+Compare the performance of the new scheduling algorithms with the round-robin scheduling and with the M/M/1 system.
+
+
+
+Case 5: Mixing servers
+----------------------
+
+We will now evaluate a configuration that does not consider the task assignment algorithm, but a mix of fast and slow servers.
+
+In Case 1, we've simulated a single server with a service rate of $\mu = 100$ requests per second.
+
+Now imagine that we have another server which is older a slower that the first server. Implement a round-robin load balancer that distributes the requests between the two servers according to their service rate.
+
+For example if $\mu_1 = 100$ and $\mu_2 = 20$, you could use a list of servers `[server1, server1, server1, server1, server1, server2]` and use round-robin scheduling to assign the requests to the servers. Server1 will receive 5 times more requests than server2.
+
+- If you only consider the throughput, which configuration is better: only the fast server, or both servers?
+- Can you find a configuration where the response time is better with only the fast server?
+- Can you find a configuration where the response time is better with both servers?
+
+
+
+Conclusions
+-----------
+
+Use the `Result.md` file to summarize your findings. What did you learn from this lab? What are the implications for the design of server farms and load balancing systems?

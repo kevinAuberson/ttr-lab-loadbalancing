@@ -4,6 +4,21 @@ Lab report: Server farms and load balancing
 > [!NOTE]
 > Write your report in this document. You can write it in English or French
 
+Results table
+-------------
+
+Fill out the table below to record the simulation results.
+
+Response times (99th percentile) in milliseconds:
+
+| Case                      | 10% utilization | 80% utilization | 90% utilization | 
+|---------------------------|----------------:|----------------:|----------------:|
+| Case 1: M/M/1             |                 |                 |                 |
+| Case 2: 5 servers, RR     |                 |                 |                 |
+| Case 3: 7 servers, overd. |                 |                 |                 |
+| Case 4: 5 servers, SFQ    |                 |                 |                 |
+| Case 4: 5 servers, CQ     |                 |                 |                 |
+
 
 
 Case 1: Base scenario: M/M/1 system
@@ -47,12 +62,23 @@ Increasing the number of servers improves the performance of the load balancing 
 
 
 
-Case 4: Improving the loadbalancing system
+Case 4: Improving the load balancing system
 ------------------------------------------
 
-The goal of this case is to define a better scheduling algorithm than round-robin. Implement a new scheduling algorithm and evaluate its performance, e.g., at 80% utilization.
+Describe the results obtained from the two algorithms (shortest-queue-first and central queue). How do they compare with the round-robin scheduling and with the M/M/1 system?
 
-Describe the new scheduling algorithm and show the response time plot here. Compare the performance with the round-robin scheduling and with the M/M/1 system.
+
+
+Case 5: Mixing servers
+----------------------
+
+This case considers a mix of a fast and slower server. 
+
+Provide your answers to the questions for the mixed server configuration.
+
+- If you only consider the throughput, which configuration is better: only the fast server, or both servers?
+- Can you find a configuration where the response time is better with only the fast server?
+- Can you find a configuration where the response time is better with both servers?
 
 
 
