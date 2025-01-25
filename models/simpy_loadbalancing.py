@@ -46,6 +46,25 @@ class LoadBalancer:
         self.next_server = (self.next_server + 1) % len(self.servers)
         return server
 
+    def shortest_queue_first(self):
+        """Shortest queue load balancing policy."""
+        server = min(self.servers, key=lambda s: len(s.resource.queue))
+        return server
+
+    def process_queue(self):
+        """Process requests from the central queue."""
+        while True:
+            arrival_time = yield self.queue.get()
+            server = self.get_available_server()
+            if server:
+                self.env.process(server.handle_request(arrival_time))
+
+    def get_available_server(self):
+        """Get the first available server."""
+        for server in self.servers:
+            if len(server.resource.queue) == 0:
+                return server
+        return None
 
 # ---------------------------------------------------------------------------
 # Server node
@@ -85,9 +104,9 @@ def main():
     """
 
     # Simulation coniguration
-    plot_file = "../visualizations/1_server.png"
+    plot_file = "../visualizations/5_server_old_rr.png"
     num_requests = 500_000
-    service_rates = [100] # List of service rates of each server
+    service_rates = [100, 100, 100, 100, 100, 20] # List of service rates of each server
     arrival_rates = list(range(5, 100, 5)) + [99] # List of arrival rates to simulate
 
     # Lists to store the results of the different simulation runs
